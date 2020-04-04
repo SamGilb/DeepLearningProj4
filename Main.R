@@ -1,8 +1,18 @@
-## Beginning of Code
-## Set up Libraries here
+
+#Code setup
 library(tensorflow)
 library(keras)
 library(ggplot2)
+library(data.table)
+set.seed(1)
+
+
+###############################################################################
+###############################################################################
+###################### DATA UPLOAD AND ORGANIZATION ###########################
+###############################################################################
+###############################################################################
+
 ## Spam Upload
 if(!file.exists("spam.data"))
 {
@@ -15,7 +25,6 @@ spam.dt <- data.table::fread("spam.data")
 label.col <- ncol(spam.dt)
 Y.Arr <- array( spam.dt[[label.col]], nrow(spam.dt) )
 
-set.seed(1)
 fold.vec <- sample(rep(1:5, l=nrow(spam.dt)))
 test.fold <- 1
 is.test <- fold.vec == test.fold
@@ -33,63 +42,272 @@ X.test.a <- array(X.test.mat, dim(X.test.mat))
 Y.train <- Y.Arr[is.train]
 Y.test <- Y.Arr[is.test]
 
-#Good To plug into Tensorflow
+###############################################################################
+###############################################################################
+############################# Train Model 1 ###################################
+###############################################################################
+###############################################################################
 
-n.splits <- 10
-split.metrics.list <- list()
-for( split.i in 1:n.splits)
-{
-  ## Make Model here.
-  model <- keras_model_sequential() %>% 
-    layer_flatten(input_shape = ncol(X.train.mat)) %>% #Input layer
-    layer_dense(units = 100, activation = "sigmoid", use_bias = FALSE) %>% # Hidden layer, change # of hidden units here? (10, 100, 1000)
-    layer_dense(units = 1, activation = "sigmoid", use_bias = FALSE) # Output Layer
-  
-  ## Compile Model here.
-  model %>% 
-    compile(
-      loss = "binary_crossentropy",
-      optimizer = "sgd",
-      metrics = "accuracy"
-    )
-  ## Fit model here
-  result <- model %>% 
-    fit(
-      x = X.train.mat, y = Y.train,
-      epochs = 100,
-      validation_split = 0.4, #0.4 means 40% validation data
-      verbose = 2
-    )
-  plot(result)
-  metrics.wide <- do.call(data.table::data.table, result$metrics)
-  metrics.wide[, epoch := 1:.N]
-  split.metrics.list[[split.i]] <- data.table::data.table(
-    split.i, metrics.wide)
-}
-split.metrics <- do.call(rbind, split.metrics.list)
+#Initialize model with architecture of (ncol(X), 10, 1)
+model1 <- keras_model_sequential() %>% 
+  layer_flatten(input_shape = ncol(X.train.mat)) %>% #Input layer
+  layer_dense(units = 10, activation = "sigmoid", use_bias = FALSE) %>% # Hidden layer, change # of hidden units here? (10, 100, 1000)
+  layer_dense(units = 1, activation = "sigmoid", use_bias = FALSE) # Output Layer
 
-split.means <- split.metrics[, .(
-  mean.val.loss=mean(val_loss), 
-  sd.val.loss=sd(val_loss)
-  ), by=epoch]
+## Compile Model for binary classification
+model1 %>% 
+  compile(
+    loss = "binary_crossentropy",
+    optimizer = "sgd",
+    metrics = "accuracy"
+  )
 
-min.dt <- split.means[which.min(mean.val.loss)]
-min.dt[, point := "min"]
-# ggplot2 lib called in function head
+## Fit model here
+result1 <- model1 %>% 
+  fit(
+    x = X.train.mat, y = Y.train,
+    epochs = 250,
+    validation_split = 0.4, #0.4 means 40% validation data
+    verbose = 2
+  )
+
+#store metrics for later use in plot section
+metrics1 <- do.call(data.table, result1$metrics)
+metrics1[, epoch := 1:.N]
+min.metrics1 <- metrics1[which.min(val_loss)]
+best_epochs1 <- min.metrics1$epoch
+
+###############################################################################
+###############################################################################
+############################# Train Model 2 ###################################
+###############################################################################
+###############################################################################
+
+#Initialize model with architecture of (ncol(X), 10, 1)
+model2 <- keras_model_sequential() %>% 
+  layer_flatten(input_shape = ncol(X.train.mat)) %>% #Input layer
+  layer_dense(units = 100, activation = "sigmoid", use_bias = FALSE) %>% # Hidden layer, change # of hidden units here? (10, 100, 1000)
+  layer_dense(units = 1, activation = "sigmoid", use_bias = FALSE) # Output Layer
+
+## Compile Model for binary classification
+model2 %>% 
+  compile(
+    loss = "binary_crossentropy",
+    optimizer = "sgd",
+    metrics = "accuracy"
+  )
+
+## Fit model here
+result2 <- model2 %>% 
+  fit(
+    x = X.train.mat, y = Y.train,
+    epochs = 250,
+    validation_split = 0.4, #0.4 means 40% validation data
+    verbose = 2
+  )
+
+#store metrics for later use in plot section
+metrics2 <- do.call(data.table, result2$metrics)
+metrics2[, epoch := 1:.N]
+min.metrics2 <- metrics2[which.min(val_loss)]
+best_epochs2 <- min.metrics2$epoch
+
+###############################################################################
+###############################################################################
+############################# Train Model 3 ###################################
+###############################################################################
+###############################################################################
+
+#Initialize model with architecture of (ncol(X), 10, 1)
+model3 <- keras_model_sequential() %>% 
+  layer_flatten(input_shape = ncol(X.train.mat)) %>% #Input layer
+  layer_dense(units = 1000, activation = "sigmoid", use_bias = FALSE) %>% # Hidden layer, change # of hidden units here? (10, 100, 1000)
+  layer_dense(units = 1, activation = "sigmoid", use_bias = FALSE) # Output Layer
+
+## Compile Model for binary classification
+model3 %>% 
+  compile(
+    loss = "binary_crossentropy",
+    optimizer = "sgd",
+    metrics = "accuracy"
+  )
+
+## Fit model here
+result3 <- model3 %>% 
+  fit(
+    x = X.train.mat, y = Y.train,
+    epochs = 250,
+    validation_split = 0.4, #0.4 means 40% validation data
+    verbose = 2
+  )
+
+#store metrics for later use in plot section
+metrics3 <- do.call(data.table, result3$metrics)
+metrics3[, epoch := 1:.N]
+min.metrics3 <- metrics3[which.min(val_loss)]
+best_epochs3 <- min.metrics3$epoch
+
+###############################################################################
+###############################################################################
+################################# Plotting ####################################
+###############################################################################
+###############################################################################
+
+
 ggplot()+
-  geom_ribbon(aes(
-    x=epoch, ymin=mean.val.loss-sd.val.loss, ymax=mean.val.loss+sd.val.loss),
-    alpha=0.5,
-    data = split.means
+  
+  #plot first neural network
+  geom_line(aes(
+    x=epoch, y=loss, color = '10 Hidden Units', linetype = 'train'),
+    data = metrics1)+
+  geom_line(aes(
+    x=epoch, y=val_loss, color = '10 Hidden Units', linetype = 'validation'),
+    data = metrics1)+
+  geom_point(aes(
+    x=epoch, y=val_loss, color='min'),
+    data=min.metrics1
   )+
+  
+  #plot second neural network
+  geom_line(aes(
+    x=epoch, y=loss, color = '100 Hidden Units', linetype = 'train'),
+    data = metrics2)+
+  geom_line(aes(
+    x=epoch, y=val_loss, color = '100 Hidden Units', linetype = 'validation'),
+    data = metrics2)+
   geom_point(aes(
-    x=epoch, y=mean.val.loss),
-    data = split.means)+
+    x=epoch, y=val_loss, color='min'),
+    data=min.metrics2
+  )+
+  
+  #plot third neural network
+  geom_line(aes(
+    x=epoch, y=loss, color = '1000 Hidden Units', linetype = 'train'),
+    data = metrics3)+
+  geom_line(aes(
+    x=epoch, y=val_loss, color = '1000 Hidden Units', linetype = 'validation'),
+    data = metrics3)+
   geom_point(aes(
-    x=epoch, y=mean.val.loss, color=point),
-    data=min.dt
+    x=epoch, y=val_loss, color='min'),
+    data=min.metrics3
+  )+
+  labs(
+    color = "name1",
+    linetype = "set"
+    
+  )
+
+###############################################################################
+###############################################################################
+########################### Re-train Model 1 ##################################
+###############################################################################
+###############################################################################
+
+#Initialize model with architecture of (ncol(X), 10, 1)
+model1 <- keras_model_sequential() %>% 
+  layer_flatten(input_shape = ncol(X.train.mat)) %>% #Input layer
+  layer_dense(units = 10, activation = "sigmoid", use_bias = FALSE) %>% # Hidden layer, change # of hidden units here? (10, 100, 1000)
+  layer_dense(units = 1, activation = "sigmoid", use_bias = FALSE) # Output Layer
+
+## Compile Model for binary classification
+model1 %>% 
+  compile(
+    loss = "binary_crossentropy",
+    optimizer = "sgd",
+    metrics = "accuracy"
+  )
+
+## Fit model here
+result1 <- model1 %>% 
+  fit(
+    x = X.train.mat, y = Y.train,
+    epochs = best_epochs1,
+    validation_split = 0, #train on whole training set
+    verbose = 2
   )
 
 
+###############################################################################
+###############################################################################
+############################# Re-train Model 2 ##################################
+###############################################################################
+###############################################################################
+
+#Initialize model with architecture of (ncol(X), 10, 1)
+model2 <- keras_model_sequential() %>% 
+  layer_flatten(input_shape = ncol(X.train.mat)) %>% #Input layer
+  layer_dense(units = 100, activation = "sigmoid", use_bias = FALSE) %>% # Hidden layer, change # of hidden units here? (10, 100, 1000)
+  layer_dense(units = 1, activation = "sigmoid", use_bias = FALSE) # Output Layer
+
+## Compile Model for binary classification
+model2 %>% 
+  compile(
+    loss = "binary_crossentropy",
+    optimizer = "sgd",
+    metrics = "accuracy"
+  )
+
+## Fit model here
+result2 <- model2 %>% 
+  fit(
+    x = X.train.mat, y = Y.train,
+    epochs = best_epochs2,
+    validation_split = 0, #train on whole training set
+    verbose = 2
+  )
+
+###############################################################################
+###############################################################################
+########################### Re-train Model 3 ##################################
+###############################################################################
+###############################################################################
+
+#Initialize model with architecture of (ncol(X), 10, 1)
+model3 <- keras_model_sequential() %>% 
+  layer_flatten(input_shape = ncol(X.train.mat)) %>% #Input layer
+  layer_dense(units = 1000, activation = "sigmoid", use_bias = FALSE) %>% # Hidden layer, change # of hidden units here? (10, 100, 1000)
+  layer_dense(units = 1, activation = "sigmoid", use_bias = FALSE) # Output Layer
+
+## Compile Model for binary classification
+model3 %>% 
+  compile(
+    loss = "binary_crossentropy",
+    optimizer = "sgd",
+    metrics = "accuracy"
+  )
+
+## Fit model here
+result3 <- model3 %>% 
+  fit(
+    x = X.train.mat, y = Y.train,
+    epochs = best_epochs3,
+    validation_split = 0, #train on whole training set
+    verbose = 2
+  )
 
 
+###############################################################################
+###############################################################################
+########################### Model Evaluation ##################################
+###############################################################################
+###############################################################################
+
+#Evaluate first model
+print("Model 1's loss and accuracy is:")
+model1 %>%
+  evaluate( X.test.mat, Y.test, verbose = 0)
+
+#Evaluate second model
+print("Model 2's loss and accuracy is:")
+model2 %>%
+  evaluate( X.test.mat, Y.test, verbose = 0)
+
+#Evaluate third model
+print("Model 3's loss and accuracy is:")
+model3 %>%
+  evaluate( X.test.mat, Y.test, verbose = 0)
+
+#Evaluate baseline accuracy
+print("Baseline Accuracy is:")
+baseline.accuracy <- max(sum(Y.test == 1), sum(Y.test == 0)) / length(Y.test)
+print(baseline.accuracy)
