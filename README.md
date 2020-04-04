@@ -1,7 +1,7 @@
 # DeepLearningProj4
 The repository for Deep Learning Project 4 Spring 2020
 
-To access our code head over to [Here](https://github.com/SamGilb/DeepLearningProj4)
+To access our code head over to [Here](https://github.com/SamGilb/DeepLearningProj4/blob/master/Main.R)
 
 Install these libraries for RStudio using install.packages()
 * ggplot2
