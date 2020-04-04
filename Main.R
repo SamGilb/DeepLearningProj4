@@ -192,7 +192,7 @@ ggplot()+
     data=min.metrics3
   )+
   labs(
-    color = "name1",
+    color = "Model",
     linetype = "set"
     
   )
