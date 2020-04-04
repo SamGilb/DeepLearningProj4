@@ -2,6 +2,7 @@
 ## Set up Libraries here
 library(tensorflow)
 library(keras)
+library(ggplot2)
 ## Spam Upload
 if(!file.exists("spam.data"))
 {
@@ -34,26 +35,61 @@ Y.test <- Y.Arr[is.test]
 
 #Good To plug into Tensorflow
 
-## Make Model here.
-model <- keras_model_sequential() %>% 
-  layer_flatten(input_shape = ncol(X.train.mat)) %>% #Input layer
-  layer_dense(units = 100, activation = "sigmoid", use_bias = FALSE) %>% # Hidden layer, change # of hidden units here? (10, 100, 1000)
-  layer_dense(units = 1, activation = "sigmoid", use_bias = FALSE) # Output Layer
+n.splits <- 10
+split.metrics.list <- list()
+for( split.i in 1:n.splits)
+{
+  ## Make Model here.
+  model <- keras_model_sequential() %>% 
+    layer_flatten(input_shape = ncol(X.train.mat)) %>% #Input layer
+    layer_dense(units = 100, activation = "sigmoid", use_bias = FALSE) %>% # Hidden layer, change # of hidden units here? (10, 100, 1000)
+    layer_dense(units = 1, activation = "sigmoid", use_bias = FALSE) # Output Layer
+  
+  ## Compile Model here.
+  model %>% 
+    compile(
+      loss = "binary_crossentropy",
+      optimizer = "sgd",
+      metrics = "accuracy"
+    )
+  ## Fit model here
+  result <- model %>% 
+    fit(
+      x = X.train.mat, y = Y.train,
+      epochs = 100,
+      validation_split = 0.4, #0.4 means 40% validation data
+      verbose = 2
+    )
+  plot(result)
+  metrics.wide <- do.call(data.table::data.table, result$metrics)
+  metrics.wide[, epoch := 1:.N]
+  split.metrics.list[[split.i]] <- data.table::data.table(
+    split.i, metrics.wide)
+}
+split.metrics <- do.call(rbind, split.metrics.list)
 
-## Compile Model here.
-model %>% 
-  compile(
-    loss = "binary_crossentropy",
-    optimizer = "adam",
-    metrics = "accuracy"
+split.means <- split.metrics[, .(
+  mean.val.loss=mean(val_loss), 
+  sd.val.loss=sd(val_loss)
+  ), by=epoch]
+
+min.dt <- split.means[which.min(mean.val.loss)]
+min.dt[, point := "min"]
+# ggplot2 lib called in function head
+ggplot()+
+  geom_ribbon(aes(
+    x=epoch, ymin=mean.val.loss-sd.val.loss, ymax=mean.val.loss+sd.val.loss),
+    alpha=0.5,
+    data = split.means
+  )+
+  geom_point(aes(
+    x=epoch, y=mean.val.loss),
+    data = split.means)+
+  geom_point(aes(
+    x=epoch, y=mean.val.loss, color=point),
+    data=min.dt
   )
 
-## Fit model here
-model %>% 
-  fit(
-    x = X.train.mat, y = Y.train,
-    epochs = 5,
-    validation_split = 0.4, #0.4 means 40% validation? for the 40%:60% split
-    verbose = 2
-  )
+
+
 
